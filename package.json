@@ -1,0 +1,29 @@
+{
+  "name": "redis-lite",
+  "version": "0.1.0",
+  "description": "A Redis-compatible in-memory data server built with TypeScript.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test",
+    "check": "npm run typecheck && npm test"
+  },
+  "keywords": [
+    "redis",
+    "database",
+    "tcp",
+    "resp",
+    "typescript"
+  ],
+  "author": "Ziad Ahmed",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
