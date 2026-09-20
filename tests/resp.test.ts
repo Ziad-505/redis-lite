@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeBulkString, encodeInteger, encodeSimpleString, encodeSimpleError } from '../src/resp.js';
+import { encodeArray, encodeBulkString, encodeInteger, encodeSimpleString, encodeSimpleError } from '../src/resp.js';
 
+// Simple String Tests
 test('encodes a RESP simple string', () => {
     const result = encodeSimpleString('OK');
     const expected = Buffer.from('+OK\r\n');
@@ -22,6 +23,7 @@ test('rejects a line feed in a RESP simple string', () => {
     );
 });
 
+// Error Tests
 test('encodes a RESP simple error', () => {
     const result = encodeSimpleError('ERR unknown command');
 
@@ -44,6 +46,7 @@ test('rejects a line feed in a RESP simple error', () => {
     );
 });
 
+// Integar Tests
 test('encodes a positive RESP integer', () => {
     const result = encodeInteger(42n);
 
@@ -76,6 +79,7 @@ test('rejects an integer below the signed 64-bit range', () => {
     );
 });
 
+// String Tests
 test('encodes a RESP bulk string', () => {
     const result = encodeBulkString(Buffer.from('hello'));
 
@@ -118,5 +122,41 @@ test('encodes a null RESP bulk string', () => {
     assert.deepStrictEqual(
         result,
         Buffer.from('$-1\r\n')
+    );
+});
+
+// Bulk String Tests
+test('encodes an array of RESP values', () => {
+    const result = encodeArray([
+        encodeBulkString(Buffer.from('SET')),
+        encodeBulkString(Buffer.from('name')),
+        encodeBulkString(Buffer.from('Ziad'))
+    ]);
+
+    const expected = Buffer.from(
+        '*3\r\n' +
+        '$3\r\nSET\r\n' +
+        '$4\r\nname\r\n' +
+        '$4\r\nZiad\r\n'
+    );
+
+    assert.deepStrictEqual(result, expected);
+});
+
+test('encodes an empty RESP array', () => {
+    const result = encodeArray([]);
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('*0\r\n')
+    );
+});
+
+test('encodes a null RESP array', () => {
+    const result = encodeArray(null);
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('*-1\r\n')
     );
 });

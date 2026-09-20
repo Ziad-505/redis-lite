@@ -30,3 +30,13 @@ export function encodeBulkString(value: Buffer | null): Buffer {
   const terminator = Buffer.from('\r\n');
   return Buffer.concat([header, value, terminator]);
 }
+
+export function encodeArray(
+  encodedElements: readonly Buffer[] | null
+): Buffer {
+  if (encodedElements === null) {
+    return Buffer.from('*-1\r\n');
+  }
+  const header = Buffer.from(`*${encodedElements.length}\r\n`);
+  return Buffer.concat([header, ...encodedElements]);
+}
