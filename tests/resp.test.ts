@@ -1,6 +1,6 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { encodeSimpleString } from "../src/resp.js";
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { encodeSimpleString, encodeSimpleError } from '../src/resp.js';
 
 test('encodes a RESP simple string', () => {
     const result = encodeSimpleString('OK');
@@ -18,6 +18,28 @@ test('rejects a carriage return in a RESP simple string', () => {
 test('rejects a line feed in a RESP simple string', () => {
     assert.throws(
         () => encodeSimpleString('hello\nworld'),
+        /must not contain CR or LF/
+    );
+});
+
+test('encodes a RESP simple error', () => {
+    const result = encodeSimpleError('ERR unknown command');
+
+    const expected = Buffer.from('-ERR unknown command\r\n');
+
+    assert.deepStrictEqual(result, expected);
+});
+
+test('rejects a carriage return in a RESP simple error', () => {
+    assert.throws(
+        () => encodeSimpleError('ERR bad\rmessage'),
+        /must not contain CR or LF/
+    );
+});
+
+test('rejects a line feed in a RESP simple error', () => {
+    assert.throws(
+        () => encodeSimpleError('ERR bad\nmessage'),
         /must not contain CR or LF/
     );
 });
