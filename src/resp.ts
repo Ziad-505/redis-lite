@@ -11,3 +11,13 @@ export function encodeSimpleError(message: string): Buffer {
   }
   return Buffer.from(`-${message}\r\n`, 'utf8');
 }
+
+const MIN_RESP_INTEGER = -(2n ** 63n);
+const MAX_RESP_INTEGER = (2n ** 63n) - 1n;
+
+export function encodeInteger(value: bigint): Buffer {
+  if(value < MIN_RESP_INTEGER || value > MAX_RESP_INTEGER) {
+    throw new Error('RESP integer must be within the signed 64-bit range')
+  }
+  return Buffer.from(`:${value}\r\n`);
+}
