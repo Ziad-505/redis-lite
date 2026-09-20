@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeInteger, encodeSimpleString, encodeSimpleError } from '../src/resp.js';
+import { encodeBulkString, encodeInteger, encodeSimpleString, encodeSimpleError } from '../src/resp.js';
 
 test('encodes a RESP simple string', () => {
     const result = encodeSimpleString('OK');
@@ -73,5 +73,50 @@ test('rejects an integer below the signed 64-bit range', () => {
     assert.throws(
         () => encodeInteger(-9_223_372_036_854_775_809n),
         /signed 64-bit range/
+    );
+});
+
+test('encodes a RESP bulk string', () => {
+    const result = encodeBulkString(Buffer.from('hello'));
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('$5\r\nhello\r\n')
+    );
+});
+
+test('encodes an empty RESP bulk string', () => {
+    const result = encodeBulkString(Buffer.alloc(0));
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('$0\r\n\r\n')
+    );
+});
+
+test('uses byte length for a Unicode RESP bulk string', () => {
+    const result = encodeBulkString(Buffer.from('😀'));
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('$4\r\n😀\r\n')
+    );
+});
+
+test('allows CRLF inside a RESP bulk string', () => {
+    const result = encodeBulkString(Buffer.from('a\r\nb'));
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('$4\r\na\r\nb\r\n')
+    );
+});
+
+test('encodes a null RESP bulk string', () => {
+    const result = encodeBulkString(null);
+
+    assert.deepStrictEqual(
+        result,
+        Buffer.from('$-1\r\n')
     );
 });

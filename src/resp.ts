@@ -21,3 +21,12 @@ export function encodeInteger(value: bigint): Buffer {
   }
   return Buffer.from(`:${value}\r\n`);
 }
+
+export function encodeBulkString(value: Buffer | null): Buffer {
+  if (value === null) {
+      return Buffer.from('$-1\r\n');
+  }
+  const header = Buffer.from(`$${value.length}\r\n`);
+  const terminator = Buffer.from('\r\n');
+  return Buffer.concat([header, value, terminator]);
+}
