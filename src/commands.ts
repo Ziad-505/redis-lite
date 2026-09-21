@@ -1,5 +1,6 @@
 import {
     encodeBulkString,
+    encodeInteger,
     encodeSimpleError,
     encodeSimpleString,
     type RespValue
@@ -47,6 +48,7 @@ export function executeCommand(request: RespValue): Buffer {
     
         return encodeBulkString(commandArguments[0]);
     }
+
     if (commandName === 'SET') {
         if (commandArguments.length !== 2) {
             return encodeSimpleError("ERR wrong number of arguments for 'SET' command");
@@ -57,6 +59,7 @@ export function executeCommand(request: RespValue): Buffer {
             
         return encodeSimpleString('OK');
     }
+
     if (commandName === 'GET') {
         if (commandArguments.length !== 1) {
             return encodeSimpleError("ERR wrong number of arguments for 'GET' command");
@@ -66,6 +69,22 @@ export function executeCommand(request: RespValue): Buffer {
             
         return encodeBulkString(value ?? null);
     }
-    return encodeSimpleError(`ERR unknown command '${commandName.toLowerCase()}'`);
 
+    if (commandName === 'DEL') {
+        if (commandArguments.length === 0) {
+            return encodeSimpleError("ERR wrong number of arguments for 'DEL' command");
+        }
+        let counter = 0n;
+        
+        for(const argument of commandArguments){
+            const key = argument.toString('utf8');
+            const removed = store.delete(key);
+            if(removed){
+                counter++;
+            }
+        }
+            
+        return encodeInteger(counter);
+    }
+    return encodeSimpleError(`ERR unknown command '${commandName.toLowerCase()}'`);
 }

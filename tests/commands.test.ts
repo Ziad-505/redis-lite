@@ -156,3 +156,97 @@ test('GET rejects a missing key', () => {
         Buffer.from("-ERR wrong number of arguments for 'GET' command\r\n")
     );
 });
+
+test('DEL removes the key and value from store', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+
+    const delResponse = executeCommand(
+        createCommand('DEL', 'name')
+    );
+
+    assert.deepStrictEqual(
+        delResponse,
+        Buffer.from(':1\r\n')
+    );
+
+    const getResponse = executeCommand(
+        createCommand('GET', 'name')
+    );
+    
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$-1\r\n')
+    );
+});
+
+test('DEL returns a 0 for a missing key', () => {
+
+    const delResponse = executeCommand(
+        createCommand('DEL', 'game')
+    );
+
+    assert.deepStrictEqual(
+        delResponse,
+        Buffer.from(':0\r\n')
+    );
+
+});
+
+test('DEL rejects a missing argument', () => {
+
+    const deltResponse = executeCommand(
+        createCommand('DEL')
+    );
+
+    assert.deepStrictEqual(
+        deltResponse,
+        Buffer.from("-ERR wrong number of arguments for 'DEL' command\r\n")
+    );
+});
+
+test('DEL removes several keys and its values from store', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+    executeCommand(createCommand('SET', 'day', 'monday'))
+    executeCommand(createCommand('SET', 'gender', 'male'))
+
+
+    const delResponse = executeCommand(
+        createCommand('DEL', 'name', 'day', 'gender')
+    );
+
+    assert.deepStrictEqual(
+        delResponse,
+        Buffer.from(':3\r\n')
+    );
+
+    for (const key of ['name', 'day', 'gender']) {
+        const getResponse = executeCommand(
+            createCommand('GET', key)
+        );
+    
+        assert.deepStrictEqual(
+            getResponse,
+            Buffer.from('$-1\r\n')
+        );
+    }
+});
+
+test('DEL removes only one valid key and return 1', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+
+
+    const delResponse = executeCommand(
+        createCommand('DEL', 'name', 'name', 'notReal')
+    );
+
+    assert.deepStrictEqual(
+        delResponse,
+        Buffer.from(':1\r\n')
+    );
+});
