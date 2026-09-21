@@ -109,3 +109,32 @@ test('processes pipelined commands over TCP', async () => {
         )
     );
 });
+
+test('SET and GET work over TCP', async () => {
+    const setResponse = await sendRequest(
+        Buffer.from(
+            '*3\r\n' +
+            '$3\r\nSET\r\n' +
+            '$8\r\ntcp-name\r\n' +
+            '$4\r\nZiad\r\n'
+        )
+    );
+
+    assert.deepStrictEqual(
+        setResponse,
+        Buffer.from('+OK\r\n')
+    );
+
+    const getResponse = await sendRequest(
+        Buffer.from(
+            '*2\r\n' +
+            '$3\r\nGET\r\n' +
+            '$8\r\ntcp-name\r\n'
+        )
+    );
+
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$4\r\nZiad\r\n')
+    );
+});
