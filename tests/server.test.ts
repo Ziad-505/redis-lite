@@ -18,9 +18,15 @@ before(async () => {
     server = createRedisServer();
 
     await new Promise<void>((resolve, reject) => {
-        server.once('error', reject);
+        const handleError = (error: Error) => {
+            reject(error);
+        };
+
+        server.once('error', handleError);
 
         server.listen(0, '127.0.0.1', () => {
+            server.off('error', handleError);
+
             const address = server.address();
 
             if (address === null || typeof address === 'string') {
@@ -47,32 +53,70 @@ after(async () => {
     });
 });
 
-function sendRequest(request: Buffer): Promise<Buffer> {
+function waitForConnection(client: Socket): Promise<void> {
     return new Promise((resolve, reject) => {
-        const client = createConnection({
-            host: '127.0.0.1',
-            port
-        });
+        const timeout = setTimeout(() => {
+            cleanup();
+            client.destroy();
+            reject(new Error('TCP test connection timed out'));
+        }, 2_000);
+
+        const handleConnect = () => {
+            cleanup();
+            resolve();
+        };
+
+        const handleError = (error: Error) => {
+            cleanup();
+            reject(error);
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeout);
+            client.off('connect', handleConnect);
+            client.off('error', handleError);
+        };
+
+        client.once('connect', handleConnect);
+        client.once('error', handleError);
+    });
+}
+
+function collectResponse(client: Socket): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            cleanup();
+            client.destroy();
+            reject(new Error('TCP test response timed out'));
+        }, 2_000);
 
         const responseChunks: Buffer[] = [];
 
-        client.setTimeout(2_000, () => {
-            client.destroy(new Error('TCP test request timed out'));
-        });
-
-        client.on('connect', () => {
-            client.end(request);
-        });
-
-        client.on('data', (chunk) => {
+        const handleData = (chunk: Buffer) => {
             responseChunks.push(chunk);
-        });
+        };
 
-        client.on('end', () => {
+        const handleEnd = () => {
+            cleanup();
             resolve(Buffer.concat(responseChunks));
-        });
+        };
 
-        client.on('error', reject);
+        const handleError = (error: Error) => {
+            cleanup();
+            client.destroy();
+            reject(error);
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeout);
+            client.off('data', handleData);
+            client.off('end', handleEnd);
+            client.off('error', handleError);
+        };
+
+        client.on('data', handleData);
+        client.once('end', handleEnd);
+        client.once('error', handleError);
     });
 }
 
@@ -82,24 +126,18 @@ function encodeCommand(...parts: string[]): Buffer {
     );
 }
 
-function collectResponse(client: Socket): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-        const responseChunks: Buffer[] = [];
-
-        client.setTimeout(2_000, () => {
-            client.destroy(new Error('TCP test request timed out'));
-        });
-
-        client.on('data', (chunk) => {
-            responseChunks.push(chunk);
-        });
-
-        client.on('end', () => {
-            resolve(Buffer.concat(responseChunks));
-        });
-
-        client.on('error', reject);
+async function sendRequest(request: Buffer): Promise<Buffer> {
+    const client = createConnection({
+        host: '127.0.0.1',
+        port
     });
+
+    await waitForConnection(client);
+
+    const responsePromise = collectResponse(client);
+    client.end(request);
+
+    return responsePromise;
 }
 
 test('responds to PING over TCP', async () => {
@@ -206,42 +244,74 @@ test('EXISTS and DEL update key presence over TCP', async () => {
 });
 
 test('buffers a RESP request split across TCP writes', async () => {
-    let firstDataTimeout: ReturnType<typeof setTimeout>;
+    let cancelFragmentObservation = () => {};
 
     const serverReceivedFirstFragment = new Promise<void>((resolve, reject) => {
-        firstDataTimeout = setTimeout(() => {
+        let serverSocket: Socket | undefined;
+        let settled = false;
+
+        const timeout = setTimeout(() => {
+            cleanup();
+            settled = true;
             reject(new Error('Server did not receive the first fragment'));
         }, 2_000);
 
-        server.once('connection', (serverSocket) => {
-            serverSocket.once('data', () => {
-                clearTimeout(firstDataTimeout);
-                resolve();
-            });
-        });
+        const handleData = () => {
+            cleanup();
+            settled = true;
+            resolve();
+        };
+
+        const handleConnection = (socket: Socket) => {
+            serverSocket = socket;
+            serverSocket.once('data', handleData);
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeout);
+            server.off('connection', handleConnection);
+            serverSocket?.off('data', handleData);
+        };
+
+        cancelFragmentObservation = () => {
+            if (settled) {
+                return;
+            }
+
+            cleanup();
+            settled = true;
+            resolve();
+        };
+
+        server.once('connection', handleConnection);
     });
 
     const client = createConnection({
         host: '127.0.0.1',
         port
     });
-    const responsePromise = collectResponse(client);
 
-    await new Promise<void>((resolve, reject) => {
-        client.once('connect', resolve);
-        client.once('error', reject);
-    });
+    try {
+        await waitForConnection(client);
 
-    client.write(Buffer.from('*1\r\n$4\r\nPI'));
+        const responsePromise = collectResponse(client);
+        client.write(Buffer.from('*1\r\n$4\r\nPI'));
 
-    // This confirms the incomplete fragment reached the server before the
-    // remainder is written, without assuming TCP always preserves writes.
-    await serverReceivedFirstFragment;
+        // Confirm the incomplete fragment reached the server before writing
+        // the remainder. TCP does not guarantee one event per client write.
+        await serverReceivedFirstFragment;
 
-    client.end(Buffer.from('NG\r\n'));
+        client.end(Buffer.from('NG\r\n'));
 
-    assert.deepStrictEqual(
-        await responsePromise,
-        Buffer.from('+PONG\r\n')
-    );
+        assert.deepStrictEqual(
+            await responsePromise,
+            Buffer.from('+PONG\r\n')
+        );
+    } finally {
+        cancelFragmentObservation();
+
+        if (!client.destroyed) {
+            client.destroy();
+        }
+    }
 });

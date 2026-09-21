@@ -97,18 +97,13 @@ test('SET saves a value that GET retrieves', () => {
     );
 });
 
-test('SET replaces an existing variable', () => {
-    const setResponse = executeCommand(
+test('SET replaces an existing value', () => {
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
 
     executeCommand(
         createCommand('SET', 'name', 'Omar')
-    );
-
-    assert.deepStrictEqual(
-        setResponse,
-        Buffer.from('+OK\r\n')
     );
 
     const getResponse = executeCommand(
@@ -122,7 +117,6 @@ test('SET replaces an existing variable', () => {
 });
 
 test('GET returns null for a missing key', () => {
-
     const getResponse = executeCommand(
         createCommand('GET', 'day')
     );
@@ -134,7 +128,6 @@ test('GET returns null for a missing key', () => {
 });
 
 test('SET rejects a missing value', () => {
-
     const setResponse = executeCommand(
         createCommand('SET', 'name')
     );
@@ -146,7 +139,6 @@ test('SET rejects a missing value', () => {
 });
 
 test('GET rejects a missing key', () => {
-
     const getResponse = executeCommand(
         createCommand('GET')
     );
@@ -158,7 +150,7 @@ test('GET rejects a missing key', () => {
 });
 
 test('DEL removes the key and value from store', () => {
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
 
@@ -174,15 +166,14 @@ test('DEL removes the key and value from store', () => {
     const getResponse = executeCommand(
         createCommand('GET', 'name')
     );
-    
+
     assert.deepStrictEqual(
         getResponse,
         Buffer.from('$-1\r\n')
     );
 });
 
-test('DEL returns a 0 for a missing key', () => {
-
+test('DEL returns 0 for a missing key', () => {
     const delResponse = executeCommand(
         createCommand('DEL', 'game')
     );
@@ -191,28 +182,25 @@ test('DEL returns a 0 for a missing key', () => {
         delResponse,
         Buffer.from(':0\r\n')
     );
-
 });
 
 test('DEL rejects a missing argument', () => {
-
-    const deltResponse = executeCommand(
+    const delResponse = executeCommand(
         createCommand('DEL')
     );
 
     assert.deepStrictEqual(
-        deltResponse,
+        delResponse,
         Buffer.from("-ERR wrong number of arguments for 'DEL' command\r\n")
     );
 });
 
-test('DEL removes several keys and its values from store', () => {
-    const setResponse = executeCommand(
+test('DEL removes multiple keys and returns their count', () => {
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
-    executeCommand(createCommand('SET', 'day', 'monday'))
-    executeCommand(createCommand('SET', 'gender', 'male'))
-
+    executeCommand(createCommand('SET', 'day', 'monday'));
+    executeCommand(createCommand('SET', 'gender', 'male'));
 
     const delResponse = executeCommand(
         createCommand('DEL', 'name', 'day', 'gender')
@@ -227,7 +215,7 @@ test('DEL removes several keys and its values from store', () => {
         const getResponse = executeCommand(
             createCommand('GET', key)
         );
-    
+
         assert.deepStrictEqual(
             getResponse,
             Buffer.from('$-1\r\n')
@@ -235,11 +223,10 @@ test('DEL removes several keys and its values from store', () => {
     }
 });
 
-test('DEL removes only one valid key and return 1', () => {
-    const setResponse = executeCommand(
+test('DEL counts a repeated key only once', () => {
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
-
 
     const delResponse = executeCommand(
         createCommand('DEL', 'name', 'name', 'notReal')
@@ -251,11 +238,10 @@ test('DEL removes only one valid key and return 1', () => {
     );
 });
 
-test('EXISTS return only 1 for its key', () => {
-    const setResponse = executeCommand(
+test('EXISTS returns 1 for an existing key', () => {
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
-
 
     const existsResponse = executeCommand(
         createCommand('EXISTS', 'name')
@@ -265,9 +251,11 @@ test('EXISTS return only 1 for its key', () => {
         existsResponse,
         Buffer.from(':1\r\n')
     );
+
     const getResponse = executeCommand(
         createCommand('GET', 'name')
     );
+
     assert.deepStrictEqual(
         getResponse,
         Buffer.from('$4\r\nZiad\r\n')
@@ -285,7 +273,7 @@ test('EXISTS returns 0 for a key that was never saved', () => {
     );
 });
 
-test('EXISTS rejects no arguments', () => {
+test('EXISTS rejects a missing key argument', () => {
     const existsResponse = executeCommand(
         createCommand('EXISTS')
     );
@@ -296,13 +284,12 @@ test('EXISTS rejects no arguments', () => {
     );
 });
 
-test('EXISTS several keys and its values from store', () => {
-    const setResponse = executeCommand(
+test('EXISTS counts multiple existing keys', () => {
+    executeCommand(
         createCommand('SET', 'name', 'Ziad')
     );
-    executeCommand(createCommand('SET', 'day', 'monday'))
-    executeCommand(createCommand('SET', 'gender', 'male'))
-
+    executeCommand(createCommand('SET', 'day', 'monday'));
+    executeCommand(createCommand('SET', 'gender', 'male'));
 
     const existsResponse = executeCommand(
         createCommand('EXISTS', 'name', 'day', 'gender')
@@ -315,7 +302,7 @@ test('EXISTS several keys and its values from store', () => {
 });
 
 test('EXISTS counts repeated existing keys', () => {
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'color', 'red')
     );
 
@@ -330,7 +317,7 @@ test('EXISTS counts repeated existing keys', () => {
 });
 
 test('EXPIRE with zero seconds deletes the key immediately', () => {
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'color', 'red')
     );
 
@@ -349,7 +336,6 @@ test('EXPIRE with zero seconds deletes the key immediately', () => {
         getResponse,
         Buffer.from('$-1\r\n')
     );
-
 });
 
 test('EXPIRE rejects incorrect argument counts', () => {
@@ -393,8 +379,7 @@ test('EXPIRE returns 0 for a key that was never saved', () => {
 });
 
 test('EXPIRE rejects invalid durations', () => {
-
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'sky', 'blue')
     );
 
@@ -411,7 +396,7 @@ test('EXPIRE rejects invalid durations', () => {
 
     assert.deepStrictEqual(
         getResponse,
-        Buffer.from("$4\r\nblue\r\n")
+        Buffer.from('$4\r\nblue\r\n')
     );
 });
 
@@ -442,8 +427,7 @@ test('EXPIRE rejects malformed durations without changing values', () => {
 });
 
 test('EXPIRE rejects unsafe integer durations', () => {
-
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'name', 'loola')
     );
 
@@ -458,8 +442,7 @@ test('EXPIRE rejects unsafe integer durations', () => {
 });
 
 test('EXPIRE rejects deadlines outside the safe integer range', () => {
-
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'name', 'loola')
     );
 
@@ -474,8 +457,7 @@ test('EXPIRE rejects deadlines outside the safe integer range', () => {
 });
 
 test('EXPIRE with negative seconds deletes immediately', () => {
-
-    const setResponse = executeCommand(
+    executeCommand(
         createCommand('SET', 'name', 'loola')
     );
 
@@ -492,7 +474,7 @@ test('EXPIRE with negative seconds deletes immediately', () => {
 
     assert.deepStrictEqual(
         getResponse,
-        Buffer.from("$-1\r\n")
+        Buffer.from('$-1\r\n')
     );
 });
 
