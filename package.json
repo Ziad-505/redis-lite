@@ -4,6 +4,7 @@
   "description": "A Redis-compatible in-memory data server built with TypeScript.",
   "type": "module",
   "scripts": {
+    "dev": "tsx src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test",

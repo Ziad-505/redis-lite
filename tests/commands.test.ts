@@ -76,3 +76,83 @@ test('rejects PING with arguments', () => {
         )
     );
 });
+
+test('SET saves a value that GET retrieves', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+
+    assert.deepStrictEqual(
+        setResponse,
+        Buffer.from('+OK\r\n')
+    );
+
+    const getResponse = executeCommand(
+        createCommand('GET', 'name')
+    );
+
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$4\r\nZiad\r\n')
+    );
+});
+
+test('SET replaces an existing variable', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+
+    executeCommand(
+        createCommand('SET', 'name', 'Omar')
+    );
+
+    assert.deepStrictEqual(
+        setResponse,
+        Buffer.from('+OK\r\n')
+    );
+
+    const getResponse = executeCommand(
+        createCommand('GET', 'name')
+    );
+
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$4\r\nOmar\r\n')
+    );
+});
+
+test('GET returns null for a missing key', () => {
+
+    const getResponse = executeCommand(
+        createCommand('GET', 'day')
+    );
+
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$-1\r\n')
+    );
+});
+
+test('SET rejects a missing value', () => {
+
+    const setResponse = executeCommand(
+        createCommand('SET', 'name')
+    );
+
+    assert.deepStrictEqual(
+        setResponse,
+        Buffer.from("-ERR wrong number of arguments for 'SET' command\r\n")
+    );
+});
+
+test('GET rejects a missing key', () => {
+
+    const getResponse = executeCommand(
+        createCommand('GET')
+    );
+
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from("-ERR wrong number of arguments for 'GET' command\r\n")
+    );
+});

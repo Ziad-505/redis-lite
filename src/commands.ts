@@ -5,6 +5,8 @@ import {
     type RespValue
 } from './resp.js';
 
+const store = new Map<string, Buffer>();
+
 export function executeCommand(request: RespValue): Buffer {
     if (
         request.type !== 'array' ||
@@ -44,6 +46,25 @@ export function executeCommand(request: RespValue): Buffer {
         }
     
         return encodeBulkString(commandArguments[0]);
+    }
+    if (commandName === 'SET') {
+        if (commandArguments.length !== 2) {
+            return encodeSimpleError("ERR wrong number of arguments for 'SET' command");
+        }
+        const key = commandArguments[0].toString('utf8');
+        const value = commandArguments[1];
+        store.set(key, value);
+            
+        return encodeSimpleString('OK');
+    }
+    if (commandName === 'GET') {
+        if (commandArguments.length !== 1) {
+            return encodeSimpleError("ERR wrong number of arguments for 'GET' command");
+        }
+        const key = commandArguments[0].toString('utf8');
+        const value = store.get(key);
+            
+        return encodeBulkString(value ?? null);
     }
     return encodeSimpleError(`ERR unknown command '${commandName.toLowerCase()}'`);
 
