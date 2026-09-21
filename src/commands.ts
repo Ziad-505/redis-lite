@@ -6,7 +6,22 @@ import {
     type RespValue
 } from './resp.js';
 
-const store = new Map<string, Buffer>();
+const store = new Map<string, StoredEntry>();
+
+function getLiveEntry(key: string): StoredEntry | undefined {
+    const entry = store.get(key);
+
+    if (entry === undefined) {
+        return undefined;
+    }
+
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+        store.delete(key);
+        return undefined;
+    }
+
+    return entry;
+}
 
 export function executeCommand(request: RespValue): Buffer {
     if (
@@ -55,7 +70,10 @@ export function executeCommand(request: RespValue): Buffer {
         }
         const key = commandArguments[0].toString('utf8');
         const value = commandArguments[1];
-        store.set(key, value);
+        store.set(key, {
+            value: value,
+            expiresAt: null
+        });
             
         return encodeSimpleString('OK');
     }
@@ -65,9 +83,9 @@ export function executeCommand(request: RespValue): Buffer {
             return encodeSimpleError("ERR wrong number of arguments for 'GET' command");
         }
         const key = commandArguments[0].toString('utf8');
-        const value = store.get(key);
+        const entry = getLiveEntry(key);
             
-        return encodeBulkString(value ?? null);
+        return encodeBulkString(entry?.value ?? null);
     }
 
     if (commandName === 'DEL') {
@@ -78,6 +96,9 @@ export function executeCommand(request: RespValue): Buffer {
         
         for(const argument of commandArguments){
             const key = argument.toString('utf8');
+            if (getLiveEntry(key) === undefined) {
+                continue;
+            }
             const removed = store.delete(key);
             if(removed){
                 counter++;
@@ -95,12 +116,47 @@ export function executeCommand(request: RespValue): Buffer {
 
         for(const argument of commandArguments){
             const key = argument.toString('utf8');
-            const exists = store.has(key);
+            const exists = getLiveEntry(key) !== undefined;
             if(exists){
                 counter++;
             }
         }
         return encodeInteger(counter);
     }
+
+    if (commandName === 'EXPIRE') {
+        if (commandArguments.length !== 2) {
+            return encodeSimpleError("ERR wrong number of arguments for 'EXPIRE' command");
+        }
+        const key = commandArguments[0].toString('utf8');
+        const secondsText = commandArguments[1].toString('utf8');
+        const seconds = Number(secondsText);
+
+        if (!/^-?\d+$/.test(secondsText) || !Number.isSafeInteger(seconds)) {
+            return encodeSimpleError('ERR value is not an integer or out of range');
+        }
+
+        const entry = getLiveEntry(key);
+
+        if (entry === undefined) {
+            return encodeInteger(0n);
+        }
+        if (seconds <= 0) {
+            store.delete(key);
+            return encodeInteger(1n);
+        }
+        const expiresAt = Date.now() + seconds * 1000;
+
+        if (!Number.isSafeInteger(expiresAt)) {
+            return encodeSimpleError('ERR expire time is out of range');
+        }
+        entry.expiresAt = expiresAt;
+        return encodeInteger(1n);
+    }
     return encodeSimpleError(`ERR unknown command '${commandName.toLowerCase()}'`);
 }
+
+type StoredEntry = {
+    value: Buffer;
+    expiresAt: number | null;
+};
