@@ -44,7 +44,8 @@ export function encodeArray(
 export type RespValue =
     | { type: 'simpleString'; value: string }
     | { type: 'simpleError'; value: string }
-    | { type: 'integer'; value: bigint };
+    | { type: 'integer'; value: bigint }
+    | { type: 'bulkString'; value: Buffer | null };
 
 export type ParseResult = {
     value: RespValue;
@@ -105,6 +106,48 @@ export function parseResp(input: Buffer): ParseResult | null {
             },
             bytesRead
         };
+    }
+
+    case '$': {
+      if (!/^-?\d+$/.test(content)) {
+        throw new Error('Invalid RESP bulk string length');
+      }
+
+      const length = Number(content);
+
+      if (!Number.isSafeInteger(length) || length < -1) {
+        throw new Error('Invalid RESP bulk string length');
+      }
+
+      if (length === -1) {
+        return {
+          value: {
+            type: 'bulkString',
+            value: null,
+          },
+          bytesRead,
+        };
+      }
+
+      const dataStart = lineEnd + 2;
+      const dataEnd = dataStart + length;
+      const messageEnd = dataEnd + 2;
+
+      if (input.length < messageEnd) {
+        return null;
+      }
+
+      if (input[dataEnd] !== 13 || input[dataEnd + 1] !== 10) {
+        throw new Error('Invalid RESP bulk string terminator');
+      }
+
+      return {
+        value: {
+          type: 'bulkString',
+          value: Buffer.from(input.subarray(dataStart, dataEnd)),
+        },
+        bytesRead: messageEnd,
+      };
     }
 
     default:

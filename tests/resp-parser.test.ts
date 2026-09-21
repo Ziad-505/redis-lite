@@ -62,3 +62,65 @@ test('rejects an invalid RESP integer', () => {
         /Invalid RESP integer/
     );
 });
+
+test('parses a RESP bulk string', () => {
+    const input = Buffer.from('$5\r\nhello\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'bulkString',
+            value: Buffer.from('hello')
+        },
+        bytesRead: input.length
+    });
+});
+
+test('parses an empty RESP bulk string', () => {
+    const input = Buffer.from('$0\r\n\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'bulkString',
+            value: Buffer.alloc(0)
+        },
+        bytesRead: input.length
+    });
+});
+
+test('parses a null RESP bulk string', () => {
+    const input = Buffer.from('$-1\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'bulkString',
+            value: null
+        },
+        bytesRead: input.length
+    });
+});
+
+test('uses the declared byte length for a RESP bulk string', () => {
+    const input = Buffer.from('$4\r\n😀\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'bulkString',
+            value: Buffer.from('😀')
+        },
+        bytesRead: input.length
+    });
+});
+
+test('returns null for an incomplete RESP bulk string', () => {
+    assert.strictEqual(
+        parseResp(Buffer.from('$5\r\nhel')),
+        null
+    );
+});
+
+test('rejects an invalid RESP bulk string terminator', () => {
+    assert.throws(
+        () => parseResp(Buffer.from('$5\r\nhelloXX')),
+        /Invalid RESP bulk string terminator/
+    );
+});
