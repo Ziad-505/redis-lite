@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test",
     "check": "npm run typecheck && npm test"
