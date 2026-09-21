@@ -45,7 +45,8 @@ export type RespValue =
     | { type: 'simpleString'; value: string }
     | { type: 'simpleError'; value: string }
     | { type: 'integer'; value: bigint }
-    | { type: 'bulkString'; value: Buffer | null };
+    | { type: 'bulkString'; value: Buffer | null }
+    | { type: 'array'; value: RespValue[] | null };
 
 export type ParseResult = {
     value: RespValue;
@@ -150,6 +151,41 @@ export function parseResp(input: Buffer): ParseResult | null {
       };
     }
 
+    case '*': {
+      if (!/^-?\d+$/.test(content)) {
+        throw new Error('Invalid RESP array length');
+      }
+      const length = Number(content);
+      if (!Number.isSafeInteger(length) || length < -1) {
+        throw new Error('Invalid RESP array length');
+      }
+      if (length === -1) {
+        return {
+            value: {
+                type: 'array',
+                value: null
+            },
+            bytesRead
+          };
+      }
+      const elements: RespValue[] = [];
+      let offset = bytesRead;
+      for (let index = 0; index < length; index++) {
+          const result = parseResp(input.subarray(offset));
+          if (result === null) {
+              return null;
+          }
+          elements.push(result.value);
+          offset += result.bytesRead;
+      }
+      return {
+          value: {
+              type: 'array',
+              value: elements
+          },
+          bytesRead: offset
+      };
+  }
     default:
         throw new Error(`Unsupported RESP type prefix: ${prefix}`);
 }

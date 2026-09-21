@@ -124,3 +124,89 @@ test('rejects an invalid RESP bulk string terminator', () => {
         /Invalid RESP bulk string terminator/
     );
 });
+
+test('parses an array of RESP bulk strings', () => {
+    const input = Buffer.from(
+        '*3\r\n' +
+        '$3\r\nSET\r\n' +
+        '$4\r\nname\r\n' +
+        '$4\r\nZiad\r\n'
+    );
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'array',
+            value: [
+                { type: 'bulkString', value: Buffer.from('SET') },
+                { type: 'bulkString', value: Buffer.from('name') },
+                { type: 'bulkString', value: Buffer.from('Ziad') }
+            ]
+        },
+        bytesRead: input.length
+    });
+});
+
+test('parses an empty RESP array', () => {
+    const input = Buffer.from('*0\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'array',
+            value: []
+        },
+        bytesRead: input.length
+    });
+});
+
+test('parses a null RESP array', () => {
+    const input = Buffer.from('*-1\r\n');
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'array',
+            value: null
+        },
+        bytesRead: input.length
+    });
+});
+
+test('parses a nested RESP array', () => {
+    const input = Buffer.from(
+        '*2\r\n' +
+        '+OK\r\n' +
+        '*2\r\n:1\r\n:2\r\n'
+    );
+
+    assert.deepStrictEqual(parseResp(input), {
+        value: {
+            type: 'array',
+            value: [
+                { type: 'simpleString', value: 'OK' },
+                {
+                    type: 'array',
+                    value: [
+                        { type: 'integer', value: 1n },
+                        { type: 'integer', value: 2n }
+                    ]
+                }
+            ]
+        },
+        bytesRead: input.length
+    });
+});
+
+test('returns null for an incomplete RESP array', () => {
+    const input = Buffer.from(
+        '*2\r\n' +
+        '$3\r\nGET\r\n'
+    );
+
+    assert.strictEqual(parseResp(input), null);
+});
+
+test('rejects an invalid RESP array length', () => {
+    assert.throws(
+        () => parseResp(Buffer.from('*-2\r\n')),
+        /Invalid RESP array length/
+    );
+});
