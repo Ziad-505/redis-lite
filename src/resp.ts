@@ -40,3 +40,74 @@ export function encodeArray(
   const header = Buffer.from(`*${encodedElements.length}\r\n`);
   return Buffer.concat([header, ...encodedElements]);
 }
+
+export type RespValue =
+    | { type: 'simpleString'; value: string }
+    | { type: 'simpleError'; value: string }
+    | { type: 'integer'; value: bigint };
+
+export type ParseResult = {
+    value: RespValue;
+    bytesRead: number;
+};
+
+export function parseResp(input: Buffer): ParseResult | null {
+  if (input.length === 0) {
+      return null;
+  }
+
+  const lineEnd = input.indexOf('\r\n');
+
+  if (lineEnd === -1) {
+      return null;
+  }
+
+  const prefix = String.fromCharCode(input[0]);
+  const content = input.subarray(1, lineEnd).toString('utf8');
+  const bytesRead = lineEnd + 2;
+
+  switch (prefix) {
+    case '+':
+        return {
+            value: {
+                type: 'simpleString',
+                value: content
+            },
+            bytesRead
+        };
+
+    case '-':
+        return {
+            value: {
+                type: 'simpleError',
+                value: content
+            },
+            bytesRead
+        };
+
+    case ':': {
+        if (!/^[+-]?\d+$/.test(content)) {
+            throw new Error('Invalid RESP integer');
+        }
+
+        const value = BigInt(content);
+
+        if (value < MIN_RESP_INTEGER || value > MAX_RESP_INTEGER) {
+            throw new Error(
+                'RESP integer must be within the signed 64-bit range'
+            );
+        }
+
+        return {
+            value: {
+                type: 'integer',
+                value
+            },
+            bytesRead
+        };
+    }
+
+    default:
+        throw new Error(`Unsupported RESP type prefix: ${prefix}`);
+}
+}
