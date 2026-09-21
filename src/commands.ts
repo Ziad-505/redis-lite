@@ -86,5 +86,21 @@ export function executeCommand(request: RespValue): Buffer {
             
         return encodeInteger(counter);
     }
+
+    if (commandName === 'EXISTS') {
+        if (commandArguments.length === 0) {
+            return encodeSimpleError("ERR wrong number of arguments for 'EXISTS' command");
+        }
+        let counter = 0n;
+
+        for(const argument of commandArguments){
+            const key = argument.toString('utf8');
+            const exists = store.has(key);
+            if(exists){
+                counter++;
+            }
+        }
+        return encodeInteger(counter);
+    }
     return encodeSimpleError(`ERR unknown command '${commandName.toLowerCase()}'`);
 }

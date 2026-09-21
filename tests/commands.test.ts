@@ -250,3 +250,81 @@ test('DEL removes only one valid key and return 1', () => {
         Buffer.from(':1\r\n')
     );
 });
+
+test('EXISTS return only 1 for its key', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+
+
+    const existsResponse = executeCommand(
+        createCommand('EXISTS', 'name')
+    );
+
+    assert.deepStrictEqual(
+        existsResponse,
+        Buffer.from(':1\r\n')
+    );
+    const getResponse = executeCommand(
+        createCommand('GET', 'name')
+    );
+    assert.deepStrictEqual(
+        getResponse,
+        Buffer.from('$4\r\nZiad\r\n')
+    );
+});
+
+test('EXISTS returns 0 for a key that was never saved', () => {
+    const existsResponse = executeCommand(
+        createCommand('EXISTS', 'exists-never-saved')
+    );
+
+    assert.deepStrictEqual(
+        existsResponse,
+        Buffer.from(':0\r\n')
+    );
+});
+
+test('EXISTS rejects no arguments', () => {
+    const existsResponse = executeCommand(
+        createCommand('EXISTS')
+    );
+
+    assert.deepStrictEqual(
+        existsResponse,
+        Buffer.from("-ERR wrong number of arguments for 'EXISTS' command\r\n")
+    );
+});
+
+test('EXISTS several keys and its values from store', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'name', 'Ziad')
+    );
+    executeCommand(createCommand('SET', 'day', 'monday'))
+    executeCommand(createCommand('SET', 'gender', 'male'))
+
+
+    const existsResponse = executeCommand(
+        createCommand('EXISTS', 'name', 'day', 'gender')
+    );
+
+    assert.deepStrictEqual(
+        existsResponse,
+        Buffer.from(':3\r\n')
+    );
+});
+
+test('EXISTS counts repeated existing keys', () => {
+    const setResponse = executeCommand(
+        createCommand('SET', 'color', 'red')
+    );
+
+    const existsResponse = executeCommand(
+        createCommand('EXISTS', 'color', 'color')
+    );
+
+    assert.deepStrictEqual(
+        existsResponse,
+        Buffer.from(':2\r\n')
+    );
+});
